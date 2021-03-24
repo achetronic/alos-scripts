@@ -1,7 +1,7 @@
 Alos Scripts
 ======
 
-<img src="https://gitlab.com/achetronic/redistalker/-/wikis/uploads/placeholder/placeholder" width="150" height="150" />
+<img src="https://gitlab.com/achetronic/alos-scripts/-/wikis/uploads/bf674b9584faf1d50f162801325c34db/iconfinder__Folder_Terminal_79276.png" width="150" height="150" />
 <div style="height:2rem;"></div>
 
 #### About the project
