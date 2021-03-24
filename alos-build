@@ -1,0 +1,306 @@
+#!/bin/bash
+
+######## CONFIGURATION PARAMS ########
+######################################
+
+## Architecture you want to download for
+ARCHITECTURE="i386"
+
+
+## The concrete distribution that you want to mirror
+DISTRO="wheezy"
+
+
+## The core you want in your distribution
+# KERNEL="linux-image-2.6-32-5-686"
+# KERNEL="linux-image-3.2.0-3-686-pae"
+KERNEL="linux-image-3.2.0-3-686-pae"
+
+
+
+
+######## DONT TOUCH SINCE HERE ########
+#######################################
+
+
+
+
+######## FUNCTIONS
+function Spinner () {
+	ICON[0]="/"
+	ICON[1]="-"
+	ICON[2]="\\"
+	ICON[3]="|"
+	PROCESS=$1
+	icon_num=0
+	echo -e "\r["${ICON[$icon_num]}"] Processing \c"
+	while ( ps ax | grep $PROCESS |grep -v "grep" 1>/dev/null )
+	do
+		if [ "$icon_num" -gt "3" ]; then
+			icon_num=0
+		fi
+		echo -e "\r["${ICON[$icon_num]}"] Processing \c"
+		icon_num=$(( $icon_num + 1 ))
+		sleep 0.5
+	done
+}
+function MoverA () {
+	cd $1
+}
+function Create_Sources_List () {
+	if [ $# -eq 2 ]; then
+		Path=$1/sources.list
+		if [ ! -d $Path ]; then
+			if ! touch $Path >> /dev/null; then
+				return 1;
+			fi
+		else
+			if ! rm $Path >> /dev/null; then
+				return 1;
+			else
+				if ! touch $Path >> /dev/null; then
+					return 1
+				fi
+			fi
+		fi
+		if ! echo "deb http://ftp.uk.debian.org/debian/ $2 main contrib non-free" >> $Path; then
+			return 1;
+		fi
+		if ! echo "deb http://security.debian.org/ $2/updates main contrib non-free" >> $Path; then
+			return 1;
+		fi
+		return 0;
+	else
+		return 1;
+	fi
+}
+
+
+
+
+######## MAIN CODE
+if [ $# -eq 1 ]; then
+	if [ $(whoami) != "root" ]; then
+		echo "Error: You are not a root."
+		exit;
+	fi
+
+	if [ $1 = "run" ]; then
+		## Mounts some places into chroot
+		echo -e "Mounting /proc into chroot"
+		if ! chroot chroot mount -t proc proc /proc >> /dev/null; then
+			echo "Error: Unable to mount /proc into the dir"
+			exit;
+		fi
+		echo -e "Mounting /sys in your dir"
+		if ! chroot chroot mount -t sysfs sysfs /sys >> /dev/null; then
+			echo "Error: Unable to mount /sys into the dir"
+			exit;
+		fi
+		echo -e "Mounting /dev in your dir"
+		if ! mount --bind /dev chroot/dev >> /dev/null; then
+			echo "Error: Unable to mount /dev into the dir"
+			exit;
+		fi
+		echo -e "Mounting /dev/pts in your dir"
+		if ! chroot chroot mount -t devpts devpts /dev/pts >> /dev/null; then
+			echo "Error: Unable to mount /dev/pts into the dir"
+			exit;
+		fi
+
+		## Copies /etc/resolv.conf into chroot
+		echo -e "Copying DNS servers into chroot"
+		if ! cp /usr/bin/alos-scripts/config-files/chroot/etc/resolv.conf chroot/etc/resolv.conf >> /dev/null; then
+			echo "Error: Unable to copy resolv.conf in chroot."
+			exit;
+		fi
+		## Runs CHROOT JAIL
+		echo -e "Running chroot"
+		if ! chroot chroot; then
+			echo "Error: Unable to enter into chroot."
+			exit;
+		fi
+
+		## Cleans some packages
+		echo -e "Cleaning caches"
+		if ! chroot chroot apt-get clean >> /dev/null; then
+			echo "Error: Unable to clean apt-get cache"
+		fi
+		if ! unlink chroot/etc/resolv.conf >> /dev/null; then
+			echo "Error: Unable to delete /etc/resolv.conf from chroot"
+		fi
+
+		## Umounts some places from the chroot
+		echo -e "Umounting some places"
+		if chroot chroot mount | grep proc >> /dev/null; then
+			if ! chroot chroot umount -lf proc >> /dev/null; then
+				echo "Error: Unable to umount /proc from chroot"
+			fi
+		fi
+		if chroot chroot mount | grep sysfs >> /dev/null; then
+			if ! chroot chroot umount -lf sysfs >> /dev/null; then
+				echo "Error: Unable to umount /sys from chroot"
+			fi
+		fi
+		if chroot chroot mount | grep devpts >> /dev/null; then
+			if ! chroot chroot umount -lf devpts >> /dev/null; then
+				echo "Error: Unable to umount /dev/pts from chroot"
+			fi
+		fi
+		if mount | grep chroot/dev >> /dev/null; then
+			if ! umount -lf chroot/dev >> /dev/null; then
+				echo "Error: Unable to umount /dev from chroot"
+			fi
+		fi
+	elif [ $1 = "compile" ]; then
+		if [ -d "chroot" ] && [ ! -d "CD" ]; then
+			if ! apt-get -q install syslinux squashfs-tools genisoimage; then
+				echo "Error: Unable to install 'syslinux' 'squashfs-tools' and 'genisoimage' on your system."
+			fi
+			echo -e "Creating CD dirs"
+			if ! mkdir -p CD/{live,isolinux} >> /dev/null; then
+				echo "Error: Unable to create CD dirs."
+				exit;
+			fi
+			echo -e "Copying chroot's kernel to the CD"
+			if ! cp chroot/boot/vmlinuz-$KERNEL CD/live/vmlinuz >> /dev/null; then
+				echo "Error: Unable to copy your chroot's kernel into CD."
+				exit;
+			fi
+			echo -e "Copying chroot's initrd to the CD"
+			if ! cp chroot/boot/initrd.img-$KERNEL CD/live/initrd.img >> /dev/null; then
+				echo "Error: Unable to copy your chroot's initrd into CD"
+				exit;
+			fi
+			echo -e "Copying isolinux.bin into the CD"
+			if ! cp /usr/lib/syslinux/isolinux.bin CD/isolinux/ >> /dev/null; then
+				echo "Error: Unable to copy isolinux.bin into CD"
+				exit;
+			fi
+			echo -e "Copying isolinux.cfg into the CD"
+			if ! cp /usr/bin/alos-scripts/config-files/isolinux/isolinux.cfg CD/isolinux/isolinux.cfg >> /dev/null; then
+				echo "Error: Unable to copy isolinux.cfg into CD"
+				exit;
+			fi
+			echo -e "Packaging your chroot into a SquashFS image"
+			if ! mksquashfs chroot CD/live/filesystem.squashfs; then
+				echo "Error: Unable to package your chroot into a SquashFS file"
+				exit;
+			fi
+			MoverA CD
+			echo -e "Creating '.iso' image (CD.iso)"
+			if ! genisoimage -D -r -V "$IMAGE_NAME" -cache-inodes -J -l -b isolinux/isolinux.bin -c isolinux/boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -o ../CD.iso .; then
+				echo "Error: Unable to create '.iso' image (CD.iso)"
+				exit;
+			fi
+		else
+			echo "Error: Cleaning the project."
+			if [ -d ./CD/ ]; then
+				echo -e "Removing CD directory"
+				if ! rm -R CD >> /dev/null; then
+					echo "Error: Unable to delete CD directory"
+					exit;
+				fi
+				$0;
+			fi
+			if [ -f CD.iso ]; then
+				echo -e "Removing CD.iso image"
+				if ! rm CD.iso >> /dev/null; then
+					echo "Error: Unable to delete CD.iso"
+					exit;
+				fi
+				$0;
+			fi
+		fi
+	elif [ $1 = "help" ]; then
+		. "/usr/bin/alos-scripts/help"
+	elif [ $1 = "create" ]; then
+		## Downloads some base packages
+		echo -e "Downloading base packages for your chroot"
+		debootstrap --arch=$ARCHITECTURE --include live-boot,live-boot-initramfs-tools,extlinux,procps,whois,parted,$KERNEL $DISTRO chroot >> /dev/null &
+		Spinner $!
+		echo "... Done"
+
+		## Copies config-files to its place
+		echo -e "Copying config files into the dir"
+		if ! cp -R /usr/bin/alos-scripts/config-files/chroot/* chroot/ >> /dev/null; then
+			echo "Error: Unable to copy 'config-files' in your chroot"
+			exit;
+		fi
+
+		## Creates /etc/apt/sources.list
+		if ! Create_Sources_List "chroot/etc/apt" $DISTRO; then
+			echo "Error: Unable to create sources.list"
+			exit;
+		fi
+
+		## Creates the symbolic links to some things
+		echo -e "Creating symlinks"
+		if [ ! -d "chroot/usr/bin/alos-install" ]; then
+			if ! chroot chroot ln -f -s /usr/bin/alos-installer/start.sh "/usr/bin/alos-install" >> /dev/null; then
+				echo "Error: Unable to create symlink to the installer"
+				exit;
+			fi
+		fi
+
+		## Changes then installer permissions
+		echo -e "Changing permissions"
+		if ! chmod -R 711 chroot/usr/bin/alos-installer/*; then
+			echo "Error: Unable to change the permissions of the installer"
+			exit;
+		fi
+
+		## Mounts /proc, /sys, /dev and /dev/pts
+		echo -e "Mounting some places"
+		if ! chroot chroot mount -t proc proc /proc >> /dev/null; then
+			echo "Error: Unable to mount /proc in your dir"
+			exit;
+		fi
+		if ! chroot chroot mount -t sysfs sysfs /sys >> /dev/null; then
+			echo "Error: Unable to mount /sys in your dir"
+			exit;
+		fi
+		if ! mount --bind /dev chroot/dev >> /dev/null; then
+			echo "Error: Unable to mount /dev in your dir"
+			exit;
+		fi
+		if ! chroot chroot mount -t devpts devpts /dev/pts >> /dev/null; then
+			echo "Error: Unable to mount /dev/pts in your dir"
+			exit;
+		fi
+
+		## Cleans the bootloader's dir
+		echo -e "Cleaning the bootloader"
+		if ! chroot chroot rm -R /boot/extlinux >> /dev/null; then
+			echo "Error: Unable to clean the bootloader's dir"
+			exit;
+		fi
+		if ! chroot chroot mkdir -p /boot/extlinux >> /dev/null; then
+			echo "Error: Unable to create the bootloader's dir"
+			exit;
+		fi
+
+		## Umounts /proc, /sys, /dev, and /dev/pts from chroot
+		echo -e "Umounting some places"
+		if chroot chroot mount | grep proc >> /dev/null; then
+			if ! chroot chroot umount -lf proc >> /dev/null; then
+				echo "Error: Unable to umount /proc from your dir"
+			fi
+		fi
+		if chroot chroot mount | grep sysfs >> /dev/null; then
+			if ! chroot chroot umount -lf sysfs >> /dev/null; then
+				echo "Error: Unable to umount /sys from your dir"
+			fi
+		fi
+		if chroot chroot mount | grep devpts >> /dev/null; then
+			if ! chroot chroot umount -lf devpts >> /dev/null; then
+				echo "Error: Unable to umount /dev/pts from your dir"
+			fi
+		fi
+		if mount | grep chroot/dev >> /dev/null; then
+			if ! umount -lf chroot/dev >> /dev/null; then
+				echo "Error: Unable to umount /dev from your dir"
+			fi
+		fi
+	fi
+fi

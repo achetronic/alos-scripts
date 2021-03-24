@@ -1,0 +1,69 @@
+
+################
+1. ALOS-SCRIPTS 
+################
+
+Es un paquete realizado por Alby Hernandez. Es una forma sencilla de crear
+distribuciones basadas en Debian dentro de una carpeta. Luego puedes entrar
+en ella y modificarla a tu gusto.
+Al final del proceso obtienes un LiveCD con un instalador incluido que
+tambien fue creado por mi.
+He creado el instalador usando scripts de Bash para hacerlo ligero y sin azucar
+
+IMPORTANTE:
+Cuando arrancas el LiveCD, y quieres entrar en el instalador, escribe: "alos-install"
+
+
+
+
+1.1) Como instalar "Alos-Scripts"
+
+- Copiar el directorio "alos-scripts" dentro de "/usr/bin/"
+
+- Crear un acceso directo ejecutando: "ln -s /usr/bin/alos-scripts/alos-build /usr/bin/alos-build"
+
+
+
+
+1.2) Crear un nuevo proyecto
+
+- Crear una carpeta donde quieres crear dentro tu proyecto. Ejemplo: "mkdir /root/my-system"
+
+- Meterte en tu nuevo proyecto con: "cd /root/my-system"
+
+- Ejecutar lo siguiente en una consola:  "alos-build create"
+
+
+
+
+NOTA: Tienes instalada una copia base* del sistema y version Debian Wheezy** instalada en: 
+  "/root/my-system/chroot"
+*: El sistema base incluye un nucleo y algunas dependencias necesarias para el instalador del LiveCD
+**: Si quieres crear un LiveCD para otra arquitectura o version puedes modificar los parametros de configuracion en el archivo: "/usr/bin/alos-scripts/alos-build"
+
+
+
+1.3) Trabajando en nuestro nuevo sistema
+
+- Vamos dentro de la carpeta de nuestro proyecto: "cd /root/my-system"
+
+- Escribe esto para poder trabajar en el: "alos-build run"
+
+
+
+
+1.4) Salir de nuestro nuevo sistema
+
+- Escribe: "exit" y pulsa [ENTER]
+
+
+
+
+1.5) Crear el archivo .iso grabable en CD
+
+- Ve a la carpeta de tu proyecto: "cd /root/my-system" 
+
+- Escribe: "alos-build compile"
+
+Si todo va bien, tendrás un archivo CD.iso en la carpeta de tu proyecto y 
+podras grabarlo o probarlo en una maquina virtual.

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+## Listamos las funciones
+function ListLanguages {
+	List=$(ls /usr/bin/alos-scripts/man)
+	i=1
+	for Item in $List; do
+		Language=$(echo $Item | cut -d "." -f 1)
+		if [ $# -eq 1 ]; then
+			if [ $1 -eq $i ]; then
+				echo $Language
+			fi
+		else
+			echo $i")" $Language
+
+		fi
+		((i++));
+	done
+}
+
+## Listamos los idiomas disponibles
+ListLanguages
+
+## Leemos la opcion elegida por el usuario y cargamos el instalador correspondiente
+read -p "Write a number: " Choice
+if [ $Choice ]; then
+	if [ -f /usr/bin/alos-scripts/man/$(ListLanguages $Choice).lang  ]; then
+		cat /usr/bin/alos-scripts/man/$(ListLanguages $Choice).lang
+	else
+		$0
+	fi
+else
+	$0
+fi
